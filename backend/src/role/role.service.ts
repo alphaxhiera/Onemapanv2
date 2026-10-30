@@ -12,6 +12,7 @@ import {
     getAllUsers,
 } from "./role.repository";
 import prisma from "../db";
+import { isNationalAccessRole } from "./roleUtils";
 
 type Permissions = {
     [key: string]: {
@@ -132,7 +133,7 @@ export const fetchAllRoles = async (
 ): Promise<Role[]> => {
     const roles = await getAllRoles();
     
-    if (userRole === "Super Admin" || userRole === "Ketua Lembaga" || userRole === "Sekjen Lembaga") {
+    if (isNationalAccessRole(userRole)) {
         return roles;
     }
     

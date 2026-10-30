@@ -13,15 +13,19 @@ import {
   fetchLocalities,
 } from "./location.service";
 import prisma from "../../db";
+import { authenticateJWT } from "../../middleware/authentication";
+import { sendError } from "../../utils/respond";
 
 const router = Router();
+
+router.use(authenticateJWT);
 
 router.post("/id-card", async (req: Request, res: Response) => {
   try {
     const location = await getIdCardLocation(req.body as LocationInput);
     res.status(201).json({ id_card_location_id: location.location_id });
   } catch (error: any) {
-    res.status(500).send(error.message);
+    sendError(res, error);
   }
 });
 
@@ -30,7 +34,7 @@ router.post("/domicile", async (req: Request, res: Response) => {
     const location = await getDomicileLocation(req.body as LocationInput);
     res.status(201).json({ domicile_location_id: location.location_id });
   } catch (error: any) {
-    res.status(500).send(error.message);
+    sendError(res, error);
   }
 });
 
@@ -39,7 +43,7 @@ router.get("/", async (_req: Request, res: Response) => {
     const locations = await getAllLocations();
     res.status(200).json(locations);
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    sendError(res, error);
   }
 });
 
@@ -48,7 +52,7 @@ router.get("/provinces", async (_req: Request, res: Response) => {
     const provinces = await fetchProvinces();
     res.json(provinces);
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    sendError(res, error);
   }
 });
 
@@ -60,7 +64,7 @@ router.get("/cities", (req, res) => {
       const cities = await fetchCities(provinceId);
       res.json(cities);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error);
     }
   })();
 });
@@ -73,7 +77,7 @@ router.get("/districts", (req, res) => {
       const districts = await fetchDistricts(cityId);
       res.json(districts);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error);
     }
   })();
 });
@@ -86,7 +90,7 @@ router.get("/localities", (req, res) => {
       const localities = await fetchLocalities(districtId);
       res.json(localities);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error);
     }
   })();
 });
@@ -100,7 +104,7 @@ router.get("/locality/:id", async (req, res) => {
       if (!locality) return res.status(404).json({ message: "Locality tidak ditemukan" });
       res.json(locality);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error);
     }
   })();
 });
@@ -114,7 +118,7 @@ router.get("/district/:id", async (req, res) => {
       if (!district) return res.status(404).json({ message: "District tidak ditemukan" });
       res.json(district);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error);
     }
   })();
 });
@@ -128,7 +132,7 @@ router.get("/city/:id", async (req, res) => {
       if (!city) return res.status(404).json({ message: "City tidak ditemukan" });
       res.json(city);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error);
     }
   })();
 });
@@ -161,7 +165,7 @@ router.patch("/:id", async (req, res) => {
         data: updatedLocation,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error);
     }
   })();
 });
@@ -172,7 +176,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
     await deleteLocationById(id);
     res.status(200).json({ message: "Data lokasi berhasil dihapus" });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    sendError(res, error);
   }
 });
 

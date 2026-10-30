@@ -52,6 +52,7 @@ import { useDeleteQiudao } from "@/features/qiudao/useDeleteQiudao";
 import { useUpdateQiudao } from "@/features/qiudao/useUpdateQiudao";
 import { jwtDecode } from "jwt-decode";
 import { useQueryClient } from "@tanstack/react-query";
+import { API_BASE_URL } from "@/lib/api";
 
 const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, selectedCount, isDeleting }) => (
   <Modal isOpen={isOpen} onClose={onClose} maxW="600px">
@@ -595,7 +596,7 @@ export default function QiudaoPage() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:2025/import/qiudao", {
+      const res = await fetch(`${API_BASE_URL}/import/qiudao`, {
         method: "POST",
         body: formData,
         headers: {

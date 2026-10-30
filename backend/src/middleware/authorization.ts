@@ -161,7 +161,8 @@ export const authorize = (required: PermissionCheck) => {
 
       next();
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      console.error("Authorization error:", error);
+      res.status(500).json({ message: "Internal server error" });
       return;
     }
   };

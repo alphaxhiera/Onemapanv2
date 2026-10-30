@@ -5,13 +5,16 @@ const router = Router();
 
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
+    const { username, password } = req.body ?? {};
 
     await registerCredential(username, password);
 
-    res.status(201).send("Username berhasil dibuat");
+    res.status(201).json({ message: "Username berhasil dibuat" });
   } catch (error: any) {
-    res.status(400).send(error.message || "Terjadi kesalahan saat registrasi");
+    const statusCode = error.statusCode || 400;
+    res.status(statusCode).json({
+      message: statusCode >= 500 ? "Terjadi kesalahan saat registrasi" : error.message,
+    });
   }
 });
 

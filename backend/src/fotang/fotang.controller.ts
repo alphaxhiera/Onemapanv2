@@ -8,15 +8,19 @@ import {
 } from "../fotang/fotang.service";
 import { Prisma } from "@prisma/client";
 import { fetchCities, fetchDistricts, fetchLocalities, fetchProvinces } from "../profile/location/location.service";
+import { authenticateJWT } from "../middleware/authentication";
+import { sendError, sendBadRequest } from "../utils/respond";
 
 const router = Router();
+
+router.use(authenticateJWT);
 
 router.get("/", async (_req: Request, res: Response) => {
     try {
         const fotangs = await getAllFotang();
         res.status(200).json(fotangs);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 });
 
@@ -25,7 +29,7 @@ router.get("/provinces", async (_req: Request, res: Response) => {
         const provinces = await fetchProvinces();
         res.json(provinces);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 });
 
@@ -37,7 +41,7 @@ router.get("/cities", (req, res) => {
         const cities = await fetchCities(provinceId);
         res.json(cities);
         } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
         }
     })();
 });
@@ -50,7 +54,7 @@ router.get("/districts", (req, res) => {
         const districts = await fetchDistricts(cityId);
         res.json(districts);
         } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
         }
     })();
 });
@@ -63,7 +67,7 @@ router.get("/localities", (req, res) => {
         const localities = await fetchLocalities(districtId);
         res.json(localities);
         } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
         }
     })();
 });
@@ -80,7 +84,7 @@ router.get("/:id", async (req, res) => {
     
             res.status(200).json(fotang);
         } catch (error: any) {
-            res.status(500).json({ message: error.message });
+            sendError(res, error);
         }
     })();
 });
@@ -91,7 +95,7 @@ router.post("/", async (req: Request, res: Response) => {
         res.status(201).json(newFotang);
     } catch (error: any) {
         console.error("Error create:", error);
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 
@@ -105,7 +109,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
         data: updatedFotang,
         });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 
@@ -115,7 +119,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
         await deleteFotang(id);
         res.status(200).json({ message: "Fotang berhasil dihapus" });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 

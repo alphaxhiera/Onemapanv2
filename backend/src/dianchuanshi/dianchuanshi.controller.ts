@@ -7,15 +7,19 @@ import {
     deleteDianChuanShiService,
 } from "./dianchuanshi.service";
 import { Prisma } from "@prisma/client";
+import { authenticateJWT } from "../middleware/authentication";
+import { sendError, sendBadRequest } from "../utils/respond";
 
 const router = Router();
+
+router.use(authenticateJWT);
 
 router.get("/", async (_req: Request, res: Response) => {
     try {
         const data = await getAllDianChuanShiService();
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 });
 
@@ -34,7 +38,7 @@ router.post("/", async (req: Request, res: Response) => {
         const newPandita = await createDianChuanShiService(req.body as Prisma.DianChuanShiCreateInput);
         res.status(201).json({ message: "Pandita berhasil ditambahkan", data: newPandita });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 
@@ -44,7 +48,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
         const updated = await updateDianChuanShiService(id, req.body as Prisma.DianChuanShiUpdateInput);
         res.json({ message: "Pandita berhasil diperbarui", data: updated });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 
@@ -54,7 +58,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
         const result = await deleteDianChuanShiService(id);
         res.json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 

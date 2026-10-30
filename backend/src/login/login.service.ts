@@ -1,9 +1,10 @@
-import { UserCredential, User, Korwil } from "@prisma/client";
+import { UserCredential } from "@prisma/client";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { findUserByUsername, updateLastLoggedIn } from "./login.repository";
 import prisma from "../db";
-import { Permissions } from "../types/permissions";
+import { env } from "../config/env";
+import { HttpError } from "../utils/http-error";
 
 interface LoginInput {
   username: string;
@@ -23,23 +24,25 @@ interface LoginResult {
 }
 
 export const loginUser = async ({ username, password }: LoginInput): Promise<LoginResult> => {
-  if (!username || !password) {
-    throw new Error("Username dan password wajib diisi");
+  if (typeof username !== "string" || typeof password !== "string" || !username.trim() || !password) {
+    throw new HttpError("Username dan password wajib diisi", 400);
   }
 
-  const user = await findUserByUsername(username);
+  const user = await findUserByUsername(username.trim());
 
+  // Use the same message for unknown users and wrong passwords so the
+  // endpoint cannot be used to enumerate valid usernames.
   if (!user) {
-    throw new Error("User tidak ditemukan");
+    throw new HttpError("Username atau password salah", 401);
   }
 
   if (!user.username || user.user_credential == null || user.hashed_password == null) {
-    throw new Error("Data user tidak valid");
+    throw new HttpError("Username atau password salah", 401);
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.hashed_password);
   if (!isPasswordValid) {
-    throw new Error("Password salah");
+    throw new HttpError("Username atau password salah", 401);
   }
 
   const userInfo = await prisma.user.findFirst({
@@ -55,7 +58,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   });
 
   if (!userInfo) {
-    throw new Error("Data user tidak lengkap");
+    throw new HttpError("Username atau password salah", 401);
   }
 
   const primaryRole = userInfo.userRoles[0]?.role.name || "User";
@@ -137,8 +140,8 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       fotang_id: fotangId,
       permissions
     },
-    process.env.JWT_SECRET as string,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
+    env.jwtSecret,
+    { expiresIn: env.jwtExpiresIn as jwt.SignOptions["expiresIn"] }
   );
   
   const { hashed_password, ...safeUserData } = user;

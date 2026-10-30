@@ -9,6 +9,7 @@ import { FiChevronDown } from "react-icons/fi";
 import { useRef } from "react";
 import { useRouter } from "next/router";
 import { useToast } from "@chakra-ui/react";
+import { API_BASE_URL } from "@/lib/api";
 
 const AddUmatMenu = ({ onImportSuccess }) => {
   const router = useRouter();
@@ -27,8 +28,14 @@ const AddUmatMenu = ({ onImportSuccess }) => {
     formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:2025/import/umat", {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Token tidak ditemukan. Silakan login terlebih dahulu.");
+      }
+
+      const res = await fetch(`${API_BASE_URL}/import/umat`, {
         method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 

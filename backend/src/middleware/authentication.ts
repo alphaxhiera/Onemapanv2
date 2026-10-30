@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { Korwil } from "@prisma/client";
+import { env } from "../config/env";
 
 export interface JwtPayload {
   credential_id: number;
   username: string;
-  user_info_id: number;
+  user_info_id: string;
   role: string;
   scope: string;
   area: string | null;
@@ -44,10 +45,16 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  const token = authHeader.replace("Bearer ", "");
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    res.status(401).json({ message: "Unauthorized: No token provided" });
+    return;
+  }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key") as ExtendedJwtPayload;
+    const decoded = jwt.verify(token, env.jwtSecret, {
+      algorithms: ["HS256"],
+    }) as ExtendedJwtPayload;
     req.user = decoded;
     next();
   } catch (error) {

@@ -12,6 +12,7 @@ import { Korwil } from "@prisma/client";
 import prisma from "../../db";
 import { UserWithRelations } from "../../types/user";
 import { isNationalAccessRole } from "../../role/roleUtils";
+import { sendError, sendBadRequest } from "../../utils/respond";
 
 interface AuthRequest extends Request {
   user?: JwtPayload;
@@ -61,7 +62,7 @@ router.post(
       await registerUser(data);
       res.status(201).send("User registered successfully");
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      sendBadRequest(res, error);
     }
   }
 );
@@ -161,7 +162,7 @@ router.get(
       const users = await fetchAllUsers(fetchOptions);
       res.status(200).json(users);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error, "Gagal memproses data umat");
     }
   }
 );
@@ -199,7 +200,7 @@ router.get(
 
       res.status(200).json(user);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error, "Gagal memproses data umat");
     }
   }
 );
@@ -243,7 +244,7 @@ router.patch(
         data: updatedUser,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      sendError(res, error, "Gagal memproses data umat");
     }
   }
 );
@@ -276,7 +277,7 @@ router.delete(
         deletedUser,
       });
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      sendBadRequest(res, error);
     }
   }
 );

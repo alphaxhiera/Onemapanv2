@@ -1,24 +1,29 @@
 import bcrypt from "bcrypt";
 import { findExistingUsername, createUserCredential } from "./register.repository";
 import { UserCredential } from "@prisma/client";
+import { assertStrongPassword, assertValidUsername } from "../utils/password";
+import { HttpError } from "../utils/http-error";
 
 export const registerCredential = async (
-  username: string,
-  password: string
+  username: unknown,
+  password: unknown
 ): Promise<UserCredential> => {
-  if (!username || !password) {
-    throw new Error("Username dan password wajib diisi");
-  }
+  const normalizedUsername = assertValidUsername(username);
 
-  const existing = await findExistingUsername(username);
+  if (typeof password !== "string" || !password) {
+    throw new HttpError("Username dan password wajib diisi", 400);
+  }
+  assertStrongPassword(password);
+
+  const existing = await findExistingUsername(normalizedUsername);
   if (existing) {
-    throw new Error("Username sudah digunakan");
+    throw new HttpError("Username sudah digunakan", 400);
   }
 
-  const hashedPassword = bcrypt.hashSync(password, 10);
+  const hashedPassword = await bcrypt.hash(password, 12);
 
   const newCredential = await createUserCredential({
-    username,
+    username: normalizedUsername,
     hashed_password: hashedPassword,
   });
 

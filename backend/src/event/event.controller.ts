@@ -10,10 +10,13 @@ import {
 import { EventType, Korwil, EventCategory } from "@prisma/client";
 import { ExtendedJwtPayload, authenticateJWT } from "../middleware/authentication";
 import multer from "multer";
-import { v4 as uuidv4 } from "uuid";
 import path from "path";
-import fs from "fs";
 import { isNationalAccessRole } from "../role/roleUtils";
+import { env } from "../config/env";
+import { saveImageBuffer } from "../utils/file-types";
+import { HttpError } from "../utils/http-error";
+import { uploadLimiter } from "../middleware/rate-limit";
+import { sendError } from "../utils/respond";
 
 interface AuthRequest extends Request {
   user?: ExtendedJwtPayload;
@@ -23,32 +26,13 @@ const router = Router();
 
 const uploadPath = path.join(__dirname, "../../public/uploads");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    try {
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-      fs.accessSync(uploadPath, fs.constants.W_OK);
-      cb(null, uploadPath);
-    } catch (err) {
-      cb(err as Error, uploadPath);
-    }
-  },
-  filename: (req, file, cb) => {
-    const extension = file.mimetype === "image/jpeg" ? "jpg" : "png";
-    const filename = `${uuidv4()}.${extension}`;
-    cb(null, filename);
-  },
-});
-
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: env.uploadMaxFileSize, files: 1 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ["image/jpeg", "image/png"];
     if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error("Hanya file JPG dan PNG yang diperbolehkan"));
+      return cb(new HttpError("Hanya file JPG dan PNG yang diperbolehkan", 400));
     }
     cb(null, true);
   },
@@ -59,7 +43,7 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
     const events = await getEvents();
     res.status(200).json(events);
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, "Gagal memproses event");
   }
 });
 
@@ -139,7 +123,7 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
     res.status(200).json(events);
   } catch (error: any) {
     console.error("Filtered events error:", error);
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, "Gagal memproses event");
   }
 });
 
@@ -153,7 +137,7 @@ router.get("/:eventId", authenticateJWT, async (req: AuthRequest, res: Response)
 
     res.status(200).json(event);
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, "Gagal memproses event");
   }
 });
 
@@ -225,7 +209,7 @@ router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(event);
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, "Gagal memproses event");
   }
 });
 
@@ -300,7 +284,7 @@ router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =>
 
     res.status(200).json(updated);
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, "Gagal memproses event");
   }
 });
 
@@ -322,7 +306,7 @@ router.delete("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =
     await removeEvent(eventId);
     res.status(200).json({ message: "Event dihapus" });
   } catch (error: any) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    sendError(res, error, "Gagal memproses event");
   }
 });
 
@@ -330,26 +314,36 @@ router.delete("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =
 router.post(
   "/upload-poster",
   authenticateJWT,
+  uploadLimiter,
   upload.single("poster"),
   (req: AuthRequest, res: Response): void => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ message: "Tidak ada file yang diunggah" });
-        return;
-      }
+    void (async () => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ message: "Tidak ada file yang diunggah" });
+          return;
+        }
 
-      const baseUrl = process.env.SERVER_BASE_URL?.replace(/\/$/, "");
-      if (!baseUrl) {
-        res.status(500).json({ message: "SERVER_BASE_URL tidak diset" });
-        return;
-      }
+        const baseUrl = env.serverBaseUrl;
+        if (!baseUrl) {
+          res.status(500).json({ message: "SERVER_BASE_URL tidak diset" });
+          return;
+        }
 
-      const url = `${baseUrl}/uploads/${req.file.filename}`;
-      res.json({ url });
-    } catch (error: any) {
-      console.error("Upload poster error:", error);
-      res.status(500).json({ message: error.message || "Gagal upload poster" });
-    }
+        // Validate the real file signature before writing it to disk.
+        const filename = await saveImageBuffer(req.file.buffer, uploadPath);
+        const url = `${baseUrl}/uploads/${filename}`;
+        res.json({ url });
+      } catch (error: any) {
+        const statusCode = error.statusCode || 500;
+        if (statusCode >= 500) {
+          console.error("Upload poster error:", error);
+        }
+        res.status(statusCode).json({
+          message: statusCode >= 500 ? "Gagal upload poster" : error.message,
+        });
+      }
+    })();
   }
 );
 

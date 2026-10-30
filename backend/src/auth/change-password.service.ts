@@ -1,21 +1,25 @@
 import bcrypt from "bcrypt";
 import prisma from "../db";
+import { assertStrongPassword } from "../utils/password";
+import { HttpError, badRequest } from "../utils/http-error";
 
 export const changeUserPassword = async (
     userId: string,
-    oldPassword: string,
-    newPassword: string
+    oldPassword: unknown,
+    newPassword: unknown
 ): Promise<void> => {
-    if (!oldPassword || !newPassword) {
-        throw new Error("Password lama dan password baru wajib diisi");
+    if (typeof oldPassword !== "string" || typeof newPassword !== "string") {
+        throw badRequest("Password lama dan baru wajib diisi");
     }
 
-    if (newPassword.length < 6) {
-        throw new Error("Password baru minimal 6 karakter");
+    if (!oldPassword || !newPassword) {
+        throw badRequest("Password lama dan baru wajib diisi");
     }
+
+    assertStrongPassword(newPassword);
 
     if (oldPassword === newPassword) {
-        throw new Error("Password baru tidak boleh sama dengan password lama");
+        throw badRequest("Password baru tidak boleh sama dengan password lama");
     }
 
     const credential = await prisma.userCredential.findFirst({
@@ -27,20 +31,20 @@ export const changeUserPassword = async (
     });
 
     if (!credential) {
-        throw new Error("Akun tidak ditemukan atau belum memiliki credential");
+        throw new HttpError("Akun tidak ditemukan atau belum memiliki credential", 404);
     }
 
     if (!credential.hashed_password) {
-        throw new Error("Data password rusak. Hubungi administrator.");
+        throw new HttpError("Data password rusak. Hubungi administrator.", 500);
     }
 
     const isOldPasswordValid = await bcrypt.compare(oldPassword, credential.hashed_password);
 
     if (!isOldPasswordValid) {
-        throw new Error("Password lama salah");
+        throw new HttpError("Password lama salah", 400);
     }
 
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
 
     await prisma.userCredential.update({
         where: {

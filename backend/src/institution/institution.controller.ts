@@ -6,15 +6,19 @@ import {
     deleteInstitution,
 } from "./institution.service";
 import { Prisma } from "@prisma/client";
+import { authenticateJWT } from "../middleware/authentication";
+import { sendError, sendBadRequest } from "../utils/respond";
 
 const router = Router();
+
+router.use(authenticateJWT);
 
 router.get("/", async (_req: Request, res: Response) => {
     try {
         const data = await getAllInstitutions();
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 });
 
@@ -23,7 +27,7 @@ router.post("/", async (req: Request, res: Response) => {
         const newInst = await createInstitution(req.body as Prisma.InstitutionCreateInput);
         res.status(201).json(newInst);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 
@@ -33,7 +37,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
         const updated = await updateInstitution(id, req.body as Prisma.InstitutionUpdateInput);
         res.json({ message: "Lembaga berhasil diperbarui", data: updated });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 
@@ -43,7 +47,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
         await deleteInstitution(id);
         res.json({ message: "Lembaga berhasil dihapus" });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        sendBadRequest(res, error);
     }
 });
 

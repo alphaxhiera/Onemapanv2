@@ -18,6 +18,7 @@ import UserDetailModal from "@/components/UserDetailModal";
 import { useUpdateLocation } from "@/features/location/useUpdateLocation";
 import { useRouter } from "next/router";
 import { jwtDecode } from "jwt-decode";
+import { API_BASE_URL } from "@/lib/api";
 
 const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, selectedCount, isDeleting }) => (
   <Modal isOpen={isOpen} onClose={onClose} maxW="600px">
@@ -646,7 +647,7 @@ export default function UmatPage() {
         if (!token) {
           throw new Error("Token tidak ditemukan. Silakan login terlebih dahulu.");
         }
-        const res = await fetch("http://localhost:2025/import/umat", {
+        const res = await fetch(`${API_BASE_URL}/import/umat`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,

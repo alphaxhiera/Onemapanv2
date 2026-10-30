@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction, RequestHandler } from "express";
+import express, { Request, Response } from "express";
 import {
     createNewRole,
     fetchAllRoles,
@@ -9,18 +9,11 @@ import {
     removeRoleFromUser,
     getRolesByUserId,
 } from "./role.service";
-import { jwtDecode } from "jwt-decode";
 import prisma from "../db";
 import { Korwil } from "@prisma/client";
-
-interface ExtendedJwtPayload {
-    credential_id: number;
-    username: string;
-    user_info_id: number;
-    role: string;
-    area: string | null;
-    scope: string;
-}
+import { authenticateJWT, ExtendedJwtPayload } from "../middleware/authentication";
+import { sendError, sendBadRequest } from "../utils/respond";
+import { isNationalAccessRole } from "./roleUtils";
 
 interface AuthRequest extends Request {
     user?: ExtendedJwtPayload;
@@ -28,23 +21,17 @@ interface AuthRequest extends Request {
 
 const router = express.Router();
 
-const authMiddleware: RequestHandler = (req: AuthRequest, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-        res.status(401).json({ message: "No token provided" });
-        return;
-    }
-    try {
-        const decoded = jwtDecode<ExtendedJwtPayload>(token);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        res.status(401).json({ message: "Invalid token" });
-        return;
-    }
-};
+router.use(authenticateJWT);
 
-router.use(authMiddleware);
+// Role and permission management is restricted to national-level roles,
+// matching the frontend navigation rules.
+router.use((req: AuthRequest, res: Response, next) => {
+    if (!isNationalAccessRole(req.user?.role)) {
+        res.status(403).json({ message: "Forbidden: hanya admin nasional yang dapat mengelola peran" });
+        return;
+    }
+    next();
+});
 
 router.get("/users", (req: AuthRequest, res: Response) => {
     void (async () => {
@@ -108,7 +95,7 @@ router.get("/user/:user_id", (req: AuthRequest, res: Response) => {
             const userRoles = await getRolesByUserId(userId);
             res.status(200).json(userRoles);
         } catch (error: any) {
-            res.status(500).json({ message: error.message });
+            sendError(res, error, "Gagal memproses data peran");
         }
     })();
 });
@@ -144,7 +131,7 @@ router.get("/:id", (req: AuthRequest, res: Response) => {
             }
             res.status(200).json(role);
         } catch (error: any) {
-            res.status(500).json({ message: error.message });
+            sendError(res, error, "Gagal memproses data peran");
         }
     })();
 });
@@ -189,7 +176,7 @@ router.get("/", (req: AuthRequest, res: Response) => {
             
             res.status(200).json(rolesWithUsers);
         } catch (error: any) {
-            res.status(500).json({ message: error.message });
+            sendError(res, error, "Gagal memproses data peran");
         }
     })();
 });
@@ -211,7 +198,7 @@ router.post("/", (req: AuthRequest, res: Response) => {
             res.status(201).json({ id: role.role_id, message: "Peran berhasil dibuat" });
         } catch (error: any) {
             console.error("Gagal buat role:", error.message);
-            res.status(400).json({ message: error.message });
+            sendBadRequest(res, error);
         }
     })();
 });
@@ -236,7 +223,7 @@ router.put("/:id", (req: AuthRequest, res: Response) => {
                 data: updatedRole,
             });
         } catch (error: any) {
-            res.status(400).json({ message: error.message });
+            sendBadRequest(res, error);
         }
     })();
 });
@@ -315,9 +302,7 @@ router.delete("/remove", (req: AuthRequest, res: Response) => {
                 return;
             }
 
-            res.status(400).json({ 
-                message: error.message || "Gagal menghapus peran" 
-            });
+            sendBadRequest(res, error, "Gagal menghapus peran");
         }
     })();
 });
@@ -336,7 +321,7 @@ router.delete("/:id", (req: AuthRequest, res: Response) => {
                 data: deletedRole,
             });
         } catch (error: any) {
-            res.status(400).json({ message: error.message });
+            sendBadRequest(res, error);
         }
     })();
 });
@@ -402,9 +387,7 @@ router.post("/assign", (req: AuthRequest, res: Response) => {
                 return;
             }
 
-            res.status(400).json({ 
-                message: error.message || "Gagal menetapkan peran" 
-            });
+            sendBadRequest(res, error, "Gagal menetapkan peran");
         }
     })();
 });

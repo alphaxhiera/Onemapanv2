@@ -26,9 +26,12 @@ router.post("/", authenticateJWT, async (req: Request, res: Response) => {
             message: "Password berhasil diganti. Silakan login ulang untuk keamanan.",
         });
     } catch (error: any) {
-        console.error("Change password error:", error);
-        res.status(400).json({
-            message: error.message || "Gagal mengganti password",
+        const statusCode = error.statusCode || 400;
+        if (statusCode >= 500) {
+            console.error("Change password error:", error);
+        }
+        res.status(statusCode).json({
+            message: statusCode >= 500 ? "Gagal mengganti password" : (error.message || "Gagal mengganti password"),
         });
     }
 });
